@@ -34,7 +34,18 @@ namespace TrackNest.API.Controllers
         [HttpPut("update")]
         public async Task<IActionResult> UpdateProfile([FromBody] UserProfileDto dto)
         {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+
+            if (userIdClaim == null ||
+                !int.TryParse(userIdClaim.Value, out int userId))
+            {
+                return Unauthorized();
+            }
+
+            dto.Id = userId;
+
             await _userProfileService.UpdateProfileAsync(dto);
+
             return Ok("Profile updated successfully");
         }
     }

@@ -27,7 +27,22 @@ public class ExpenseService : IExpenseService
             })
             .ToListAsync();
     }
-    public async Task<int> CreateAsync(CreateExpenseDto request)
+
+    public async Task<List<ExpenseDto>> GetByUserIdAsync(int userId)
+    {
+        return await _context.Expenses
+            .Where(e => e.UserId == userId)
+            .Select(e => new ExpenseDto
+            {
+                Id = e.Id,
+                Amount = e.Amount,
+                Category = e.Category,
+                Description = e.Description,
+                ExpenseDate = e.ExpenseDate
+            })
+            .ToListAsync();
+    }
+    public async Task<int> CreateAsync(CreateExpenseDto request, int userId)
     {
         var expense = new Expense
         {
@@ -35,9 +50,9 @@ public class ExpenseService : IExpenseService
             Category = request.Category,
             Description = request.Description,
             ExpenseDate = request.ExpenseDate,
-            UserId = 1000,
+            UserId = userId,
             CreatedOn = DateTime.UtcNow,
-            CreatedBy = 1000
+            CreatedBy = userId
         };
 
         _context.Expenses.Add(expense);
@@ -61,7 +76,7 @@ public class ExpenseService : IExpenseService
             })
             .FirstOrDefaultAsync();
     }
-    public async Task<bool> UpdateAsync(int id, UpdateExpenseDto request)
+    public async Task<bool> UpdateAsync(int id, UpdateExpenseDto request, int userId)
     {
         var expense = await _context.Expenses.FindAsync(id);
 
@@ -72,7 +87,7 @@ public class ExpenseService : IExpenseService
         expense.Category = request.Category;
         expense.Description = request.Description;
         expense.ExpenseDate = request.ExpenseDate;
-        expense.UpdatedBy = 1000;
+        expense.UpdatedBy = userId;
         expense.UpdatedOn = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();

@@ -9,12 +9,10 @@ namespace TrackNest.API.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
-        private readonly IJwtTokenService _jwtTokenService;
 
-        public AuthController(IAuthService authService, IJwtTokenService jwtTokenService)
+        public AuthController(IAuthService authService)
         {
             _authService = authService;
-            _jwtTokenService = jwtTokenService;
         }
 
         [HttpPost("login")]
@@ -23,13 +21,13 @@ namespace TrackNest.API.Controllers
             var result = await _authService.LoginAsync(loginDto);
 
             if (result == null)
-                return Unauthorized();
+                return Unauthorized("Invalid email or password.");
 
             Response.Cookies.Append("refreshToken", result.RefreshToken, new CookieOptions
             {
                 HttpOnly = true,
                 Secure = true,
-                SameSite = SameSiteMode.Strict,
+                SameSite = SameSiteMode.None,
                 Expires = DateTime.UtcNow.AddDays(7)
             });
 
@@ -46,18 +44,18 @@ namespace TrackNest.API.Controllers
             var refreshToken = Request.Cookies["refreshToken"];
 
             if (string.IsNullOrEmpty(refreshToken))
-                return Unauthorized();
+                return Unauthorized("Refresh token not found.");
 
             var result = await _authService.RefreshTokenAsync(refreshToken);
 
             if (result == null)
-                return Unauthorized();
+                return Unauthorized("Invalid refresh token.");
 
             Response.Cookies.Append("refreshToken", result.RefreshToken, new CookieOptions
             {
                 HttpOnly = true,
                 Secure = true,
-                SameSite = SameSiteMode.Strict,
+                SameSite = SameSiteMode.None,
                 Expires = DateTime.UtcNow.AddDays(7)
             });
 
@@ -71,7 +69,11 @@ namespace TrackNest.API.Controllers
         public async Task<IActionResult> Signup([FromBody] UserSignupDto signupDto)
         {
             var userId = await _authService.SignupAsync(signupDto);
-            return Ok(new { Id = userId });
+
+            return Ok(new
+            {
+                Id = userId
+            });
         }
     }
 }
