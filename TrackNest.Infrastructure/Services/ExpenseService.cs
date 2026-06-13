@@ -14,9 +14,11 @@ public class ExpenseService : IExpenseService
     {
         _context = context;
     }
-    public async Task<List<ExpenseDto>> GetAllAsync()
+
+    public async Task<List<ExpenseDto>> GetAllAsync(CancellationToken ct = default)
     {
         return await _context.Expenses
+            .AsNoTracking()
             .Select(x => new ExpenseDto
             {
                 Id = x.Id,
@@ -25,12 +27,13 @@ public class ExpenseService : IExpenseService
                 Description = x.Description,
                 ExpenseDate = x.ExpenseDate
             })
-            .ToListAsync();
+            .ToListAsync(ct);
     }
 
-    public async Task<List<ExpenseDto>> GetByUserIdAsync(int userId)
+    public async Task<List<ExpenseDto>> GetByUserIdAsync(int userId, CancellationToken ct = default)
     {
         return await _context.Expenses
+            .AsNoTracking()
             .Where(e => e.UserId == userId)
             .Select(e => new ExpenseDto
             {
@@ -40,9 +43,10 @@ public class ExpenseService : IExpenseService
                 Description = e.Description,
                 ExpenseDate = e.ExpenseDate
             })
-            .ToListAsync();
+            .ToListAsync(ct);
     }
-    public async Task<int> CreateAsync(CreateExpenseDto request, int userId)
+
+    public async Task<int> CreateAsync(CreateExpenseDto request, int userId, CancellationToken ct = default)
     {
         var expense = new Expense
         {
@@ -56,16 +60,16 @@ public class ExpenseService : IExpenseService
         };
 
         _context.Expenses.Add(expense);
-
-        await _context.SaveChangesAsync();
+        await _context.SaveChangesAsync(ct);
 
         return expense.Id;
     }
 
-    public async Task<ExpenseDto?> GetByIdAsync(int id)
+    public async Task<ExpenseDto?> GetByIdAsync(int id, int userId, CancellationToken ct = default)
     {
         return await _context.Expenses
-            .Where(x => x.Id == id)
+            .AsNoTracking()
+            .Where(x => x.Id == id && x.UserId == userId)   // 🔐 SECURITY FIX
             .Select(x => new ExpenseDto
             {
                 Id = x.Id,
@@ -74,11 +78,13 @@ public class ExpenseService : IExpenseService
                 Description = x.Description,
                 ExpenseDate = x.ExpenseDate
             })
-            .FirstOrDefaultAsync();
+            .FirstOrDefaultAsync(ct);
     }
-    public async Task<bool> UpdateAsync(int id, UpdateExpenseDto request, int userId)
+
+    public async Task<bool> UpdateAsync(int id, UpdateExpenseDto request, int userId, CancellationToken ct = default)
     {
-        var expense = await _context.Expenses.FindAsync(id);
+        var expense = await _context.Expenses
+            .FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId, ct); // 🔐 SECURITY FIX
 
         if (expense == null)
             return false;
@@ -90,20 +96,21 @@ public class ExpenseService : IExpenseService
         expense.UpdatedBy = userId;
         expense.UpdatedOn = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await _context.SaveChangesAsync(ct);
 
         return true;
     }
-    public async Task<bool> DeleteAsync(int id)
+
+    public async Task<bool> DeleteAsync(int id, int userId, CancellationToken ct = default)
     {
-        var expense = await _context.Expenses.FindAsync(id);
+        var expense = await _context.Expenses
+            .FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId, ct);
 
         if (expense == null)
             return false;
 
         _context.Expenses.Remove(expense);
-
-        await _context.SaveChangesAsync();
+        await _context.SaveChangesAsync(ct);
 
         return true;
     }

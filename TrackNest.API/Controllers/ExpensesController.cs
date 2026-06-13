@@ -18,26 +18,32 @@ namespace TrackNest.API.Controllers
             _expenseService = expenseService;
         }
 
-        [HttpGet("my-expenses")]
-        public async Task<IActionResult> GetMyExpenses()
+        private int GetUserId()
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
 
-            if (userIdClaim == null ||
-                !int.TryParse(userIdClaim.Value, out int userId))
-            {
-                return Unauthorized();
-            }
+            if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
+                throw new UnauthorizedAccessException();
 
-            var expenses = await _expenseService.GetByUserIdAsync(userId);
+            return userId;
+        }
+
+        [HttpGet("my-expenses")]
+        public async Task<IActionResult> GetMyExpenses(CancellationToken ct)
+        {
+            var userId = GetUserId();
+
+            var expenses = await _expenseService.GetByUserIdAsync(userId, ct);
 
             return Ok(expenses);
         }
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(int id)
+        public async Task<IActionResult> GetById(int id, CancellationToken ct)
         {
-            var expense = await _expenseService.GetByIdAsync(id);
+            var userId = GetUserId();
+
+            var expense = await _expenseService.GetByIdAsync(id, userId, ct);
 
             if (expense == null)
                 return NotFound();
@@ -46,24 +52,21 @@ namespace TrackNest.API.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create(CreateExpenseDto request)
+        public async Task<IActionResult> Create(CreateExpenseDto request, CancellationToken ct)
         {
-            var userId = int.Parse(
-                User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+            var userId = GetUserId();
 
-            var id = await _expenseService.CreateAsync(request, userId);
+            var id = await _expenseService.CreateAsync(request, userId, ct);
 
             return Ok(new { Id = id });
         }
 
-        [Authorize]
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, UpdateExpenseDto request)
+        public async Task<IActionResult> Update(int id, UpdateExpenseDto request, CancellationToken ct)
         {
-            var userId = int.Parse(
-                User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+            var userId = GetUserId();
 
-            var updated = await _expenseService.UpdateAsync(id, request, userId);
+            var updated = await _expenseService.UpdateAsync(id, request, userId, ct);
 
             if (!updated)
                 return NotFound();
@@ -72,9 +75,11 @@ namespace TrackNest.API.Controllers
         }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(int id)
+        public async Task<IActionResult> Delete(int id, CancellationToken ct)
         {
-            var deleted = await _expenseService.DeleteAsync(id);
+            var userId = GetUserId();
+
+            var deleted = await _expenseService.DeleteAsync(id, userId, ct);
 
             if (!deleted)
                 return NotFound();
