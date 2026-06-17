@@ -4,7 +4,7 @@ namespace TrackNest.Application.Interfaces
 {
     public interface IExpenseService
     {
-        Task<List<ExpenseDto>> GetAllAsync(CancellationToken cancellationToken = default);
+        Task<List<ExpenseDto>> GetAllAsync(int page = 1, int pageSize = 50, CancellationToken cancellationToken = default);
 
         Task<ExpenseDto?> GetByIdAsync(int id, int userId, CancellationToken cancellationToken = default);
 

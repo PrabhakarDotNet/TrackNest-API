@@ -10,9 +10,9 @@ namespace TrackNest.Application.Interfaces
 {
     public interface IAuthService
     {
-        Task<AuthResultDto?> LoginAsync(UserLoginDto loginDto);
-        Task<int> SignupAsync(UserSignupDto signupDto);
-        Task<User?> ValidateUser(string username, string password);
-        Task<AuthResultDto?> RefreshTokenAsync(string refreshToken);
+        Task<AuthResultDto?> LoginAsync(UserLoginDto loginDto, CancellationToken cancellationToken = default);
+        Task<int> SignupAsync(UserSignupDto signupDto, CancellationToken cancellationToken = default);
+        Task<User?> ValidateUser(string username, string password, CancellationToken cancellationToken = default);
+        Task<AuthResultDto?> RefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default);
     }
 }

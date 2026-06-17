@@ -19,9 +19,9 @@ namespace TrackNest.Infrastructure.Services
             _jwtTokenService = jwtTokenService;
         }
 
-        public async Task<AuthResultDto?> LoginAsync(UserLoginDto loginDto)
+        public async Task<AuthResultDto?> LoginAsync(UserLoginDto loginDto, CancellationToken ct = default)
         {
-            var user = await ValidateUser(loginDto.Username, loginDto.Password);
+            var user = await ValidateUser(loginDto.Username, loginDto.Password, ct);
 
             if (user == null)
                 return null;
@@ -32,7 +32,7 @@ namespace TrackNest.Infrastructure.Services
             user.RefreshToken = refreshToken;
             user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
 
-            await _dbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync(ct);
 
             return new AuthResultDto
             {
@@ -46,10 +46,10 @@ namespace TrackNest.Infrastructure.Services
                 }
             };
         }
-        public async Task<int> SignupAsync(UserSignupDto signupDto)
+        public async Task<int> SignupAsync(UserSignupDto signupDto, CancellationToken ct = default)
         {
             var existingUser = await _dbContext.Users
-                .FirstOrDefaultAsync(x => x.Username == signupDto.Username);
+                .FirstOrDefaultAsync(x => x.Username == signupDto.Username, ct);
 
             if (existingUser != null)
                 throw new Exception("User already exists");
@@ -62,15 +62,15 @@ namespace TrackNest.Infrastructure.Services
             };
 
             _dbContext.Users.Add(user);
-            await _dbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync(ct);
 
             return user.Id;
         }
 
-        public async Task<User?> ValidateUser(string username, string password)
+        public async Task<User?> ValidateUser(string username, string password, CancellationToken ct = default)
         {
             var user = await _dbContext.Users
-                .FirstOrDefaultAsync(x => x.Username == username);
+                .FirstOrDefaultAsync(x => x.Username == username, ct);
 
             if (user == null)
                 return null;
@@ -81,10 +81,10 @@ namespace TrackNest.Infrastructure.Services
             return user;
         }
 
-        public async Task<AuthResultDto?> RefreshTokenAsync(string refreshToken)
+        public async Task<AuthResultDto?> RefreshTokenAsync(string refreshToken, CancellationToken ct = default)
         {
             var user = await _dbContext.Users
-                .FirstOrDefaultAsync(x => x.RefreshToken == refreshToken);
+                .FirstOrDefaultAsync(x => x.RefreshToken == refreshToken, ct);
 
             if (user == null)
                 return null;
@@ -98,7 +98,7 @@ namespace TrackNest.Infrastructure.Services
             user.RefreshToken = newRefreshToken;
             user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
 
-            await _dbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync(ct);
 
             return new AuthResultDto
             {

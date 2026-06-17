@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using TrackNest.Application.DTOs;
 using TrackNest.Application.Interfaces;
 using TrackNest.Domain.Entities;
@@ -9,16 +10,24 @@ namespace TrackNest.Infrastructure.Services;
 public class ExpenseService : IExpenseService
 {
     private readonly TrackNestDbContext _context;
+    private readonly ILogger<ExpenseService> _logger;
 
-    public ExpenseService(TrackNestDbContext context)
+    public ExpenseService(TrackNestDbContext context, ILogger<ExpenseService> logger)
     {
         _context = context;
+        _logger = logger;
     }
 
-    public async Task<List<ExpenseDto>> GetAllAsync(CancellationToken ct = default)
+    public async Task<List<ExpenseDto>> GetAllAsync(int page = 1, int pageSize = 50, CancellationToken ct = default)
     {
+        if (page < 1) page = 1;
+        if (pageSize < 1) pageSize = 50;
+
         return await _context.Expenses
             .AsNoTracking()
+            .OrderByDescending(x => x.ExpenseDate)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(x => new ExpenseDto
             {
                 Id = x.Id,
@@ -62,6 +71,8 @@ public class ExpenseService : IExpenseService
         _context.Expenses.Add(expense);
         await _context.SaveChangesAsync(ct);
 
+        _logger.LogInformation("Created expense {ExpenseId} for user {UserId}", expense.Id, userId);
+
         return expense.Id;
     }
 
@@ -98,6 +109,8 @@ public class ExpenseService : IExpenseService
 
         await _context.SaveChangesAsync(ct);
 
+        _logger.LogInformation("Updated expense {ExpenseId} by user {UserId}", id, userId);
+
         return true;
     }
 
@@ -111,6 +124,8 @@ public class ExpenseService : IExpenseService
 
         _context.Expenses.Remove(expense);
         await _context.SaveChangesAsync(ct);
+
+        _logger.LogInformation("Deleted expense {ExpenseId} by user {UserId}", id, userId);
 
         return true;
     }
