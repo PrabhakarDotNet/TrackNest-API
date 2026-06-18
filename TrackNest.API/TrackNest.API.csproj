@@ -12,19 +12,15 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<!-- JwtBearer 8.0.0 expects Jwt 7.0.2 -->
 		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
-		<PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="7.0.2" />
-
+		<PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="7.0.3" />
 		<PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
-
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.8">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 	</ItemGroup>
 
-	<!-- Ensure DLLs are copied into publish output -->
 	<PropertyGroup>
 		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
 	</PropertyGroup>
