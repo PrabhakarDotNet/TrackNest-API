@@ -62,19 +62,3 @@ jobs:
           app-name: 'TrackNest-API'
           slot-name: 'Production'
           package: .
-
-      - name: Install EF Core tools
-        run: dotnet tool install --global dotnet-ef
-
-      - name: Add dotnet tools to PATH
-        run: echo "${HOME}/.dotnet/tools" >> $GITHUB_PATH
-
-      - name: Apply EF Core migrations
-        working-directory: ${{ github.workspace }}
-        run: dotnet ef database update \
-          --project ./Infrastructure/Infrastructure.csproj \
-          --startup-project ./TrackNest-API/TrackNest-API.csproj \
-          --connection "Server=tcp:azuredbps.database.windows.net,1433;Database=TrackNestDb;Authentication=Active Directory Managed Identity;"
-
-
-
