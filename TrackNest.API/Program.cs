@@ -9,19 +9,16 @@ using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-
 builder.Services.AddControllers();
 
 builder.Services.AddDbContext<TrackNestDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
 );
 
-
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IExpenseService, ExpenseService>();
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
-
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -39,7 +36,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             )
         };
     });
-
 
 builder.Services.AddAuthorization();
 
@@ -85,6 +81,13 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 var app = builder.Build();
+
+// ✅ Apply EF Core migrations at startup
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<TrackNestDbContext>();
+    db.Database.Migrate();
+}
 
 if (app.Environment.IsDevelopment())
 {
