@@ -70,6 +70,11 @@ jobs:
         run: echo "${HOME}/.dotnet/tools" >> $GITHUB_PATH
 
       - name: Apply EF Core migrations
-        run: dotnet ef database update --project ./Infrastructure/Infrastructure.csproj --startup-project ./TrackNest-API/TrackNest-API.csproj --connection "Server=tcp:azuredbps.database.windows.net,1433;Database=TrackNestDb;Authentication=Active Directory Managed Identity;"
+        working-directory: ${{ github.workspace }}
+        run: dotnet ef database update \
+          --project ./Infrastructure/Infrastructure.csproj \
+          --startup-project ./TrackNest-API/TrackNest-API.csproj \
+          --connection "Server=tcp:azuredbps.database.windows.net,1433;Database=TrackNestDb;Authentication=Active Directory Managed Identity;"
+
 
 
