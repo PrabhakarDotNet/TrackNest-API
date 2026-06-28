@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TrackNest.Application", "Tr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TrackNest.Infrastructure", "TrackNest.Infrastructure\TrackNest.Infrastructure.csproj", "{4F244436-4698-4131-A16F-33DAC8233A9B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TrackNest.Tests", "TrackNest.Tests\TrackNest.Tests.csproj", "{9DAFDDFF-84E9-4FE8-AB6C-917064484301}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -69,6 +71,18 @@ Global
 		{4F244436-4698-4131-A16F-33DAC8233A9B}.Release|x64.Build.0 = Release|Any CPU
 		{4F244436-4698-4131-A16F-33DAC8233A9B}.Release|x86.ActiveCfg = Release|Any CPU
 		{4F244436-4698-4131-A16F-33DAC8233A9B}.Release|x86.Build.0 = Release|Any CPU
+		{9DAFDDFF-84E9-4FE8-AB6C-917064484301}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9DAFDDFF-84E9-4FE8-AB6C-917064484301}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9DAFDDFF-84E9-4FE8-AB6C-917064484301}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{9DAFDDFF-84E9-4FE8-AB6C-917064484301}.Debug|x64.Build.0 = Debug|Any CPU
+		{9DAFDDFF-84E9-4FE8-AB6C-917064484301}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{9DAFDDFF-84E9-4FE8-AB6C-917064484301}.Debug|x86.Build.0 = Debug|Any CPU
+		{9DAFDDFF-84E9-4FE8-AB6C-917064484301}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9DAFDDFF-84E9-4FE8-AB6C-917064484301}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9DAFDDFF-84E9-4FE8-AB6C-917064484301}.Release|x64.ActiveCfg = Release|Any CPU
+		{9DAFDDFF-84E9-4FE8-AB6C-917064484301}.Release|x64.Build.0 = Release|Any CPU
+		{9DAFDDFF-84E9-4FE8-AB6C-917064484301}.Release|x86.ActiveCfg = Release|Any CPU
+		{9DAFDDFF-84E9-4FE8-AB6C-917064484301}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
