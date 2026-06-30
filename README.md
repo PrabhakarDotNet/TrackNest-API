@@ -1,17 +1,15 @@
-# TrackNest
+# TrackNest API
 
 A secure and scalable Expense Tracking REST API built using ASP.NET Core 8, Entity Framework Core, SQL Server, and Clean Architecture principles.
 
-TrackNest enables users to securely manage personal expenses through authentication, authorization, and user-specific expense management.
+TrackNest API enables users to securely manage personal expenses through JWT authentication, refresh token flow, and user-specific expense management.
 
 ---
 
 ## Features
 
 ### Authentication & Security
-
-* User Registration
-* User Login
+* User Registration & Login
 * JWT Authentication
 * HttpOnly Cookie-Based Authentication
 * Refresh Token Implementation
@@ -20,45 +18,49 @@ TrackNest enables users to securely manage personal expenses through authenticat
 * Automatic Access Token Renewal
 
 ### Expense Management
-
-* Create Expense
-* View Expenses
-* Update Expenses
-* Delete Expenses
+* Create, View, Update, Delete Expenses
 * Expense Categorization
-* Expense Description Tracking
-* Expense Date Management
+* Expense Description & Date Tracking
+* Pagination Support
+* User-Scoped Data Access (users can only access their own expenses)
 
 ### Architecture
-
-* Clean Architecture
+* Clean Architecture (API / Application / Domain / Infrastructure)
 * Dependency Injection
-* Repository Pattern
-* Service Layer
+* Service Layer Pattern
 * RESTful API Design
-* Entity Framework Core
+* Interface-based abstractions for testability
+
+### Testing
+* xUnit Unit Tests
+* EF Core InMemory Database for isolated tests
+* Moq for mocking dependencies (IJwtTokenService)
+* FluentAssertions for readable assertions
+* 15 unit tests covering ExpenseService, AuthService, JwtTokenService and UserProfileService
+
+### Cloud & DevOps
+* Deployed on Azure App Service
+* Azure SQL Database
+* Azure Managed Identity (no credentials in code)
+* GitHub Actions CI/CD pipeline (auto-deploy on dev branch)
 
 ---
 
 ## Technology Stack
 
-### Backend
-
 * ASP.NET Core 8 Web API
 * C#
 * Entity Framework Core
-* SQL Server
+* SQL Server / Azure SQL
 * JWT Authentication
 * Cookie-Based Authentication
 * Refresh Tokens
 * LINQ
-
-### Tools & Technologies
-
-* Visual Studio 2022
+* xUnit / Moq / FluentAssertions
+* Azure App Service
+* GitHub Actions
 * Swagger / OpenAPI
-* Git
-* GitHub
+* Visual Studio 2022
 
 ---
 
@@ -67,20 +69,24 @@ TrackNest enables users to securely manage personal expenses through authenticat
 ```text
 TrackNest
 │
-├── TrackNest.API
+├── TrackNest.API                  ← Controllers, Middleware, Program.cs
 │
-├── TrackNest.Application
+├── TrackNest.Application          ← DTOs, Interfaces (Service contracts)
 │   ├── DTOs
-│   ├── Interfaces
-│   └── Services
+│   └── Interfaces
 │
-├── TrackNest.Domain
+├── TrackNest.Domain               ← Entities (User, Expense)
 │   └── Entities
 │
-└── TrackNest.Infrastructure
-    ├── Persistence
-    ├── Services
-    └── Repositories
+├── TrackNest.Infrastructure       ← EF Core, Services implementation
+│   ├── Persistence
+│   └── Services
+│
+└── TrackNest.Tests                ← xUnit Unit Tests
+    ├── ExpenseServiceTests.cs
+    ├── AuthServiceTests.cs
+    ├── JwtTokenServiceTests.cs
+    └── UserProfileServiceTests.cs
 ```
 
 ---
@@ -89,12 +95,11 @@ TrackNest
 
 1. User registers and creates an account.
 2. User logs in with valid credentials.
-3. API generates a JWT Access Token.
-4. API generates a Refresh Token.
-5. Tokens are stored in secure HttpOnly cookies.
-6. Protected endpoints validate the Access Token.
-7. When the Access Token expires, the Refresh Token is used to generate a new Access Token.
-8. Users remain authenticated without repeatedly logging in.
+3. API generates a JWT Access Token + Refresh Token.
+4. Tokens stored in secure HttpOnly cookies.
+5. Protected endpoints validate the Access Token.
+6. When Access Token expires, Refresh Token generates a new one.
+7. Users remain authenticated without repeatedly logging in.
 
 ---
 
@@ -147,68 +152,52 @@ TrackNest
 
 ---
 
-## API Documentation & Testing
+## Getting Started
 
-The API is documented and tested using Swagger/OpenAPI.
+### Clone Repository
+```bash
+git clone https://github.com/your-github-username/TrackNest.git
+```
 
-Swagger provides:
+### Restore Packages
+```bash
+dotnet restore
+```
 
-* Interactive API documentation
-* Endpoint testing
-* Request and Response visualization
-* Authentication testing
-* API contract verification
+### Apply Database Migrations
+```bash
+dotnet ef database update --project TrackNest.Infrastructure --startup-project TrackNest.API
+```
 
-After running the application, Swagger can be accessed using:
+### Run Application
+```bash
+dotnet run --project TrackNest.API
+```
 
+### Run Unit Tests
+```bash
+dotnet test
+```
+
+### Access Swagger
 ```text
 https://localhost:{port}/swagger
 ```
 
 ---
 
-## Getting Started
-
-### Clone Repository
-
-```bash
-git clone https://github.com/your-github-username/TrackNest.git
-```
-
-### Restore Packages
-
-```bash
-dotnet restore
-```
-
-### Apply Database Migrations
-
-```bash
-dotnet ef database update --project TrackNest.Infrastructure --startup-project TrackNest.API
-```
-
-### Run Application
-
-```bash
-dotnet run --project TrackNest.API
-```
-
----
-
 ## Key Concepts Demonstrated
 
-* ASP.NET Core Web API
+* ASP.NET Core 8 Web API
 * Clean Architecture
-* Entity Framework Core
-* SQL Server
-* JWT Authentication
-* Cookie-Based Authentication
-* Refresh Token Flow
-* Dependency Injection
-* Repository Pattern
+* Entity Framework Core + Azure SQL
+* JWT + Cookie Authentication + Refresh Token Flow
+* Dependency Injection + Service Pattern
 * RESTful API Design
-* User-Based Authorization
-* Secure Authentication Practices
+* User-Based Authorization (users access only their own data)
+* xUnit Unit Testing + Moq + FluentAssertions
+* Azure App Service + Managed Identity
+* GitHub Actions CI/CD
 
 ---
 
@@ -217,20 +206,15 @@ dotnet run --project TrackNest.API
 * Role-Based Authorization
 * Global Exception Handling Middleware
 * Serilog Logging
-* Pagination
-* Filtering & Search
 * Docker Support
-* RabbitMQ Integration
-* Azure Deployment
-* CI/CD Pipeline
-* Unit Testing
+* Filtering & Search
+* Budget Alerts
 
 ---
 
 ## Author
 
 **Prabhakar Koranga**
+Full Stack Developer | .NET | Angular | SQL Server
 
-Full Stack Developer
-
-**Tech Stack:** .NET | Angular | SQL Server
+**GitHub:** [github.com/your-github-username](https://github.com/your-github-username)
