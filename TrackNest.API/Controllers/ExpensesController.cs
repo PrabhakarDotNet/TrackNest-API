@@ -29,12 +29,15 @@ namespace TrackNest.API.Controllers
         }
 
         [HttpGet("my-expenses")]
-        public async Task<IActionResult> GetMyExpenses(CancellationToken ct)
+        public async Task<IActionResult> GetMyExpenses(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 5,
+        [FromQuery] string sortBy = "expenseDate",
+        [FromQuery] string sortDirection = "desc",
+        CancellationToken ct = default)
         {
             var userId = GetUserId();
-
-            var expenses = await _expenseService.GetByUserIdAsync(userId, ct);
-
+            var expenses = await _expenseService.GetByUserIdAsync(userId, page, pageSize, sortBy, sortDirection, ct);
             return Ok(expenses);
         }
 

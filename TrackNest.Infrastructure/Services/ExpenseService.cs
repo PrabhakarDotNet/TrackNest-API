@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using TrackNest.Application.Common;
 using TrackNest.Application.DTOs;
 using TrackNest.Application.Interfaces;
 using TrackNest.Domain.Entities;
@@ -18,32 +19,32 @@ public class ExpenseService : IExpenseService
         _logger = logger;
     }
 
-    public async Task<List<ExpenseDto>> GetAllAsync(int page = 1, int pageSize = 50, CancellationToken ct = default)
+    public async Task<PagedResult<ExpenseDto>> GetByUserIdAsync(int userId, int page = 1, int pageSize = 10, string sortBy = "expenseDate", string sortDirection = "desc", CancellationToken ct = default)
     {
         if (page < 1) page = 1;
-        if (pageSize < 1) pageSize = 50;
+        if (pageSize < 1) pageSize = 10;
 
-        return await _context.Expenses
+        var query = _context.Expenses
             .AsNoTracking()
-            .OrderByDescending(x => x.ExpenseDate)
+            .Where(e => e.UserId == userId);
+
+        query = (sortBy.ToLower(), sortDirection.ToLower()) switch
+        {
+            ("description", "asc") => query.OrderBy(e => e.Description),
+            ("description", "desc") => query.OrderByDescending(e => e.Description),
+            ("category", "asc") => query.OrderBy(e => e.Category),
+            ("category", "desc") => query.OrderByDescending(e => e.Category),
+            ("amount", "asc") => query.OrderBy(e => e.Amount),
+            ("amount", "desc") => query.OrderByDescending(e => e.Amount),
+            ("expensedate", "asc") => query.OrderBy(e => e.ExpenseDate),
+            _ => query.OrderByDescending(e => e.ExpenseDate)
+        };
+
+        var totalCount = await query.CountAsync(ct);
+
+        var expenses = await query
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(x => new ExpenseDto
-            {
-                Id = x.Id,
-                Amount = x.Amount,
-                Category = x.Category,
-                Description = x.Description,
-                ExpenseDate = x.ExpenseDate
-            })
-            .ToListAsync(ct);
-    }
-
-    public async Task<List<ExpenseDto>> GetByUserIdAsync(int userId, CancellationToken ct = default)
-    {
-        return await _context.Expenses
-            .AsNoTracking()
-            .Where(e => e.UserId == userId)
             .Select(e => new ExpenseDto
             {
                 Id = e.Id,
@@ -53,6 +54,14 @@ public class ExpenseService : IExpenseService
                 ExpenseDate = e.ExpenseDate
             })
             .ToListAsync(ct);
+
+        return new PagedResult<ExpenseDto>
+        {
+            Items = expenses,
+            PageNumber = page,
+            PageSize = pageSize,
+            TotalCount = totalCount
+        };
     }
 
     public async Task<int> CreateAsync(CreateExpenseDto request, int userId, CancellationToken ct = default)
@@ -80,7 +89,7 @@ public class ExpenseService : IExpenseService
     {
         return await _context.Expenses
             .AsNoTracking()
-            .Where(x => x.Id == id && x.UserId == userId)   // 🔐 SECURITY FIX
+            .Where(x => x.Id == id && x.UserId == userId)
             .Select(x => new ExpenseDto
             {
                 Id = x.Id,
@@ -129,4 +138,5 @@ public class ExpenseService : IExpenseService
 
         return true;
     }
+
 }

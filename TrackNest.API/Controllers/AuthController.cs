@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using TrackNest.Application.DTOs;
 using TrackNest.Application.Interfaces;
 
@@ -6,6 +7,7 @@ namespace TrackNest.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [AllowAnonymous]
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
@@ -14,7 +16,7 @@ namespace TrackNest.API.Controllers
         {
             _authService = authService;
         }
-
+        
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] UserLoginDto loginDto)
         {
@@ -33,8 +35,9 @@ namespace TrackNest.API.Controllers
 
             return Ok(new
             {
-                AccessToken = result.AccessToken,
-                User = result.User
+                accessToken = result.AccessToken,
+                expiresIn = 3600,                
+                user = result.User               
             });
         }
 
@@ -42,14 +45,12 @@ namespace TrackNest.API.Controllers
         public async Task<IActionResult> Refresh()
         {
             var refreshToken = Request.Cookies["refreshToken"];
-
             if (string.IsNullOrEmpty(refreshToken))
-                return Unauthorized("Refresh token not found.");
+                return Unauthorized(new { message = "Refresh token not found." });
 
             var result = await _authService.RefreshTokenAsync(refreshToken);
-
             if (result == null)
-                return Unauthorized("Invalid refresh token.");
+                return Unauthorized(new { message = "Invalid or expired refresh token." });
 
             Response.Cookies.Append("refreshToken", result.RefreshToken, new CookieOptions
             {
@@ -61,7 +62,8 @@ namespace TrackNest.API.Controllers
 
             return Ok(new
             {
-                AccessToken = result.AccessToken
+                accessToken = result.AccessToken,
+                expiresIn = 3600                 
             });
         }
 
@@ -75,5 +77,18 @@ namespace TrackNest.API.Controllers
                 Id = userId
             });
         }
+
+        [HttpPost("logout")]
+        public IActionResult Logout()
+        {
+            Response.Cookies.Delete("refreshToken", new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.None
+            });
+            return NoContent();
+        }
+
     }
 }
