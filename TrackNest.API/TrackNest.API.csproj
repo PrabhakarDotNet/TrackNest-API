@@ -4,7 +4,8 @@
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-	</PropertyGroup>
+	  <UserSecretsId>fd8798d5-7126-4122-800f-d82eb4617b61</UserSecretsId>
+  </PropertyGroup>
 
 	<ItemGroup>
 		<ProjectReference Include="..\TrackNest.Application\TrackNest.Application.csproj" />
