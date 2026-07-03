@@ -2,11 +2,25 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using TrackNest.Application.DTOs;
+using TrackNest.Application.Events;
+using TrackNest.Application.Interfaces;
 using TrackNest.Domain.Entities;
 using TrackNest.Infrastructure.Persistence;
 using TrackNest.Infrastructure.Services;
 
 namespace TrackNest.Tests;
+
+// Test double — records published events instead of hitting real RabbitMQ
+public class FakeMessagePublisher : IMessagePublisher
+{
+    public List<object> PublishedMessages { get; } = new();
+
+    public Task PublishAsync<T>(T message, string routingKey, CancellationToken cancellationToken = default)
+    {
+        PublishedMessages.Add(message!);
+        return Task.CompletedTask;
+    }
+}
 
 public class ExpenseServiceTests
 {
@@ -25,7 +39,8 @@ public class ExpenseServiceTests
     {
         // Arrange
         var context = CreateInMemoryContext();
-        var service = new ExpenseService(context, NullLogger<ExpenseService>.Instance);
+        var publisher = new FakeMessagePublisher();
+        var service = new ExpenseService(context, NullLogger<ExpenseService>.Instance, publisher);
 
         var request = new CreateExpenseDto
         {
@@ -40,6 +55,7 @@ public class ExpenseServiceTests
 
         // Assert
         id.Should().BeGreaterThan(0);
+        publisher.PublishedMessages.Should().ContainSingle();
     }
 
     // ✅ TEST 2: GetByIdAsync - should return expense for correct user
@@ -48,7 +64,7 @@ public class ExpenseServiceTests
     {
         // Arrange
         var context = CreateInMemoryContext();
-        var service = new ExpenseService(context, NullLogger<ExpenseService>.Instance);
+        var service = new ExpenseService(context, NullLogger<ExpenseService>.Instance, new FakeMessagePublisher());
 
         context.Expenses.Add(new Expense
         {
@@ -77,7 +93,7 @@ public class ExpenseServiceTests
     {
         // Arrange
         var context = CreateInMemoryContext();
-        var service = new ExpenseService(context, NullLogger<ExpenseService>.Instance);
+        var service = new ExpenseService(context, NullLogger<ExpenseService>.Instance, new FakeMessagePublisher());
 
         context.Expenses.Add(new Expense
         {
@@ -105,7 +121,8 @@ public class ExpenseServiceTests
     {
         // Arrange
         var context = CreateInMemoryContext();
-        var service = new ExpenseService(context, NullLogger<ExpenseService>.Instance);
+        var publisher = new FakeMessagePublisher();
+        var service = new ExpenseService(context, NullLogger<ExpenseService>.Instance, publisher);
 
         context.Expenses.Add(new Expense
         {
@@ -133,6 +150,7 @@ public class ExpenseServiceTests
 
         // Assert
         result.Should().BeTrue();
+        publisher.PublishedMessages.Should().ContainSingle();
     }
 
     // ✅ TEST 5: UpdateAsync - should return false for wrong user
@@ -141,7 +159,7 @@ public class ExpenseServiceTests
     {
         // Arrange
         var context = CreateInMemoryContext();
-        var service = new ExpenseService(context, NullLogger<ExpenseService>.Instance);
+        var service = new ExpenseService(context, NullLogger<ExpenseService>.Instance, new FakeMessagePublisher());
 
         context.Expenses.Add(new Expense
         {
@@ -177,7 +195,8 @@ public class ExpenseServiceTests
     {
         // Arrange
         var context = CreateInMemoryContext();
-        var service = new ExpenseService(context, NullLogger<ExpenseService>.Instance);
+        var publisher = new FakeMessagePublisher();
+        var service = new ExpenseService(context, NullLogger<ExpenseService>.Instance, publisher);
 
         context.Expenses.Add(new Expense
         {
@@ -197,6 +216,7 @@ public class ExpenseServiceTests
 
         // Assert
         result.Should().BeTrue();
+        publisher.PublishedMessages.Should().ContainSingle();
     }
 
     // ✅ TEST 7: DeleteAsync - should return false for wrong user
@@ -205,7 +225,7 @@ public class ExpenseServiceTests
     {
         // Arrange
         var context = CreateInMemoryContext();
-        var service = new ExpenseService(context, NullLogger<ExpenseService>.Instance);
+        var service = new ExpenseService(context, NullLogger<ExpenseService>.Instance, new FakeMessagePublisher());
 
         context.Expenses.Add(new Expense
         {

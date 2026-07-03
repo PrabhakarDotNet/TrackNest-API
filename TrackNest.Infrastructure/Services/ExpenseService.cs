@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using TrackNest.Application.Common;
 using TrackNest.Application.DTOs;
 using TrackNest.Application.Interfaces;
+using TrackNest.Application.Events;
 using TrackNest.Domain.Entities;
 using TrackNest.Infrastructure.Persistence;
 
@@ -12,11 +13,13 @@ public class ExpenseService : IExpenseService
 {
     private readonly TrackNestDbContext _context;
     private readonly ILogger<ExpenseService> _logger;
+    private readonly IMessagePublisher _messagePublisher;
 
-    public ExpenseService(TrackNestDbContext context, ILogger<ExpenseService> logger)
+    public ExpenseService(TrackNestDbContext context, ILogger<ExpenseService> logger, IMessagePublisher messagePublisher)
     {
         _context = context;
         _logger = logger;
+        _messagePublisher = messagePublisher;
     }
 
     public async Task<PagedResult<ExpenseDto>> GetByUserIdAsync(int userId, int page = 1, int pageSize = 10, string sortBy = "expenseDate", string sortDirection = "desc", CancellationToken ct = default)
@@ -82,6 +85,11 @@ public class ExpenseService : IExpenseService
 
         _logger.LogInformation("Created expense {ExpenseId} for user {UserId}", expense.Id, userId);
 
+        await _messagePublisher.PublishAsync(
+            new ExpenseChangedEvent { UserId = userId.ToString(), ChangeType = "Created" },
+            routingKey: "expense.changed",
+            cancellationToken: ct);
+
         return expense.Id;
     }
 
@@ -120,6 +128,11 @@ public class ExpenseService : IExpenseService
 
         _logger.LogInformation("Updated expense {ExpenseId} by user {UserId}", id, userId);
 
+        await _messagePublisher.PublishAsync(
+            new ExpenseChangedEvent { UserId = userId.ToString(), ChangeType = "Updated" },
+            routingKey: "expense.changed",
+            cancellationToken: ct);
+
         return true;
     }
 
@@ -135,6 +148,11 @@ public class ExpenseService : IExpenseService
         await _context.SaveChangesAsync(ct);
 
         _logger.LogInformation("Deleted expense {ExpenseId} by user {UserId}", id, userId);
+
+        await _messagePublisher.PublishAsync(
+            new ExpenseChangedEvent { UserId = userId.ToString(), ChangeType = "Deleted" },
+            routingKey: "expense.changed",
+            cancellationToken: ct);
 
         return true;
     }
