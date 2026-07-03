@@ -6,6 +6,7 @@ using TrackNest.Application.Interfaces;
 using TrackNest.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.OpenApi.Models;
+using TrackNest.Api.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -91,6 +92,7 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<TrackNestDbContext>();
     db.Database.Migrate();
 }
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {
