@@ -49,10 +49,17 @@ namespace TrackNest.Infrastructure.Services
         public async Task<int> SignupAsync(UserSignupDto signupDto, CancellationToken ct = default)
         {
             var existingUser = await _dbContext.Users
-                .FirstOrDefaultAsync(x => x.Username == signupDto.Username, ct);
-
+                                .FirstOrDefaultAsync(
+                                x => x.Username == signupDto.Username || x.Email == signupDto.Email,ct);
+            
             if (existingUser != null)
-                throw new Exception("User already exists");
+            {
+                if (existingUser.Username == signupDto.Username)
+                    throw new Exception("Username already exists.");
+
+                if (existingUser.Email == signupDto.Email)
+                    throw new Exception("Email already exists.");
+            }
 
             var user = new User
             {

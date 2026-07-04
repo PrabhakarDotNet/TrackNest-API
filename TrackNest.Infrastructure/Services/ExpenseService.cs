@@ -22,7 +22,14 @@ public class ExpenseService : IExpenseService
         _messagePublisher = messagePublisher;
     }
 
-    public async Task<PagedResult<ExpenseDto>> GetByUserIdAsync(int userId, int page = 1, int pageSize = 10, string sortBy = "expenseDate", string sortDirection = "desc", CancellationToken ct = default)
+    public async Task<PagedResult<ExpenseDto>> GetByUserIdAsync(
+        int userId,
+        int page = 1,
+        int pageSize = 10,
+        string sortBy = "expenseDate",
+        string sortDirection = "desc",
+        string? searchTerm = null,
+        CancellationToken ct = default)
     {
         if (page < 1) page = 1;
         if (pageSize < 1) pageSize = 10;
@@ -30,6 +37,18 @@ public class ExpenseService : IExpenseService
         var query = _context.Expenses
             .AsNoTracking()
             .Where(e => e.UserId == userId);
+
+        // Apply search BEFORE pagination — filtering after Skip/Take would
+        // paginate the full unfiltered set and only filter whatever page
+        // happened to load, giving wrong totals and missing matches on
+        // page 2+.
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var term = searchTerm.Trim();
+            query = query.Where(e =>
+                EF.Functions.Like(e.Description, $"%{term}%") ||
+                EF.Functions.Like(e.Category, $"%{term}%"));
+        }
 
         query = (sortBy.ToLower(), sortDirection.ToLower()) switch
         {
