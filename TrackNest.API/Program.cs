@@ -24,6 +24,7 @@ builder.Services.AddScoped<IExpenseService, ExpenseService>();
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddSingleton<IMessagePublisher, RabbitMqPublisher>();
+builder.Services.AddSingleton<IGoogleTokenValidator, GoogleTokenValidatorService>();
 builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection("RabbitMq"));
 
 // Health Checks

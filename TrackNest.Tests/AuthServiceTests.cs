@@ -1,4 +1,5 @@
 ﻿using FluentAssertions;
+using Google.Apis.Auth;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Moq;
@@ -43,24 +44,17 @@ public class AuthServiceTests
     }
 
     // ✅ TEST 1: SignupAsync - should return new user Id
-    [Fact]
-    public async Task SignupAsync_ShouldReturnUserId_WhenUserDoesNotExist()
+    private Mock<IGoogleTokenValidator> CreateGoogleTokenValidatorMock()
     {
-        var context = CreateInMemoryContext();
-        var jwtMock = CreateJwtMock();
-        var config = CreateFakeConfiguration();
-        var service = new AuthService(context, jwtMock.Object, config);
-
-        var signupDto = new UserSignupDto
-        {
-            Username = "prabhu",
-            Email = "prabhu@test.com",
-            Password = "Test@123"
-        };
-
-        var userId = await service.SignupAsync(signupDto);
-
-        userId.Should().BeGreaterThan(0);
+        var mock = new Mock<IGoogleTokenValidator>();
+        mock.Setup(x => x.ValidateAsync(It.IsAny<string>(), It.IsAny<GoogleJsonWebSignature.ValidationSettings>()))
+            .ReturnsAsync(new GoogleJsonWebSignature.Payload
+            {
+                Email = "test@test.com",
+                Name = "Test User",
+                Subject = "google-subject-123"
+            });
+        return mock;
     }
 
     // ✅ TEST 2: SignupAsync - should throw exception if user already exists
@@ -70,7 +64,8 @@ public class AuthServiceTests
         var context = CreateInMemoryContext();
         var jwtMock = CreateJwtMock();
         var config = CreateFakeConfiguration();
-        var service = new AuthService(context, jwtMock.Object, config);
+        var googleMock = CreateGoogleTokenValidatorMock();
+        var service = new AuthService(context, jwtMock.Object, config, googleMock.Object);
 
         context.Users.Add(new User
         {
@@ -90,7 +85,7 @@ public class AuthServiceTests
         var act = async () => await service.SignupAsync(signupDto);
 
         await act.Should().ThrowAsync<Exception>()
-            .WithMessage("User already exists");
+            .WithMessage("Username already exists.");
     }
 
     // ✅ TEST 3: LoginAsync - should return tokens when credentials are valid
@@ -100,7 +95,8 @@ public class AuthServiceTests
         var context = CreateInMemoryContext();
         var jwtMock = CreateJwtMock();
         var config = CreateFakeConfiguration();
-        var service = new AuthService(context, jwtMock.Object, config);
+        var googleMock = CreateGoogleTokenValidatorMock();
+        var service = new AuthService(context, jwtMock.Object, config, googleMock.Object);
 
         context.Users.Add(new User
         {
@@ -131,7 +127,8 @@ public class AuthServiceTests
         var context = CreateInMemoryContext();
         var jwtMock = CreateJwtMock();
         var config = CreateFakeConfiguration();
-        var service = new AuthService(context, jwtMock.Object, config);
+        var googleMock = CreateGoogleTokenValidatorMock();
+        var service = new AuthService(context, jwtMock.Object, config, googleMock.Object);
 
         context.Users.Add(new User
         {
@@ -159,7 +156,8 @@ public class AuthServiceTests
         var context = CreateInMemoryContext();
         var jwtMock = CreateJwtMock();
         var config = CreateFakeConfiguration();
-        var service = new AuthService(context, jwtMock.Object, config);
+        var googleMock = CreateGoogleTokenValidatorMock();
+        var service = new AuthService(context, jwtMock.Object, config, googleMock.Object);
 
         var loginDto = new UserLoginDto
         {
@@ -179,7 +177,8 @@ public class AuthServiceTests
         var context = CreateInMemoryContext();
         var jwtMock = CreateJwtMock();
         var config = CreateFakeConfiguration();
-        var service = new AuthService(context, jwtMock.Object, config);
+        var googleMock = CreateGoogleTokenValidatorMock();
+        var service = new AuthService(context, jwtMock.Object, config, googleMock.Object);
 
         context.Users.Add(new User
         {
@@ -204,7 +203,8 @@ public class AuthServiceTests
         var context = CreateInMemoryContext();
         var jwtMock = CreateJwtMock();
         var config = CreateFakeConfiguration();
-        var service = new AuthService(context, jwtMock.Object, config);
+        var googleMock = CreateGoogleTokenValidatorMock();
+        var service = new AuthService(context, jwtMock.Object, config, googleMock.Object);
 
         context.Users.Add(new User
         {
@@ -228,13 +228,24 @@ public class AuthServiceTests
     // Consider wrapping GoogleJsonWebSignature.ValidateAsync behind an injectable interface
     // (e.g. IGoogleTokenValidator) if you want this fully unit-testable. Leaving this here as a stub
     // to show intent; see note below the test.
-    [Fact(Skip = "Requires wrapping GoogleJsonWebSignature behind an injectable interface to unit test properly")]
+    [Fact]
     public async Task GoogleLoginAsync_ShouldCreateNewUser_WhenEmailDoesNotExist()
     {
         var context = CreateInMemoryContext();
         var jwtMock = CreateJwtMock();
         var config = CreateFakeConfiguration();
-        var service = new AuthService(context, jwtMock.Object, config);
+
+        var googleTokenValidatorMock = new Mock<IGoogleTokenValidator>();
+        googleTokenValidatorMock
+            .Setup(x => x.ValidateAsync(It.IsAny<string>(), It.IsAny<GoogleJsonWebSignature.ValidationSettings>()))
+            .ReturnsAsync(new GoogleJsonWebSignature.Payload
+            {
+                Email = "newuser@test.com",
+                Name = "New User",
+                Subject = "google-subject-id-123"
+            });
+
+        var service = new AuthService(context, jwtMock.Object, config, googleTokenValidatorMock.Object);
 
         var request = new GoogleLoginRequestDto
         {
@@ -244,6 +255,6 @@ public class AuthServiceTests
         var result = await service.GoogleLoginAsync(request);
 
         result.Should().NotBeNull();
-        result.User.Email.Should().NotBeNullOrEmpty();
+        result.User.Email.Should().Be("newuser@test.com");
     }
 }

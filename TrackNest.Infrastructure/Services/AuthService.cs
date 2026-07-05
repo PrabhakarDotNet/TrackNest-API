@@ -13,15 +13,18 @@ namespace TrackNest.Infrastructure.Services
         private readonly TrackNestDbContext _dbContext;
         private readonly IJwtTokenService _jwtTokenService;
         private readonly IConfiguration _configuration;
+        private readonly IGoogleTokenValidator _googleTokenValidator;
 
         public AuthService(
             TrackNestDbContext dbContext,
             IJwtTokenService jwtTokenService,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            IGoogleTokenValidator googleTokenValidator)
         {
             _dbContext = dbContext;
             _jwtTokenService = jwtTokenService;
             _configuration = configuration;
+            _googleTokenValidator = googleTokenValidator;
         }
 
         public async Task<AuthResultDto?> LoginAsync(UserLoginDto loginDto, CancellationToken ct = default)
@@ -126,6 +129,7 @@ namespace TrackNest.Infrastructure.Services
                 }
             };
         }
+
         public async Task<AuthResultDto> GoogleLoginAsync(GoogleLoginRequestDto request, CancellationToken ct = default)
         {
             GoogleJsonWebSignature.Payload payload;
@@ -137,7 +141,7 @@ namespace TrackNest.Infrastructure.Services
                     Audience = new[] { _configuration["Google:ClientId"] }
                 };
 
-                payload = await GoogleJsonWebSignature.ValidateAsync(request.IdToken, settings);
+                payload = await _googleTokenValidator.ValidateAsync(request.IdToken, settings);
             }
             catch (InvalidJwtException)
             {
