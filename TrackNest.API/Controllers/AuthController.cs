@@ -78,6 +78,33 @@ namespace TrackNest.API.Controllers
             });
         }
 
+        [HttpPost("google-login")]
+        public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequestDto request, CancellationToken ct)
+        {
+            try
+            {
+                var result = await _authService.GoogleLoginAsync(request, ct);
+
+                Response.Cookies.Append("refreshToken", result.RefreshToken, new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = true,
+                    SameSite = SameSiteMode.Strict,
+                    Expires = DateTime.UtcNow.AddDays(7)
+                });
+
+                return Ok(new
+                {
+                    accessToken = result.AccessToken,
+                    user = result.User
+                });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { message = ex.Message });
+            }
+        }
+
         [HttpPost("logout")]
         public IActionResult Logout()
         {

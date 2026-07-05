@@ -1,5 +1,6 @@
 ﻿using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Moq;
 using TrackNest.Application.DTOs;
 using TrackNest.Application.Interfaces;
@@ -28,14 +29,27 @@ public class AuthServiceTests
         return mock;
     }
 
+    // New: shared fake configuration, since AuthService now needs Google:ClientId
+    private IConfiguration CreateFakeConfiguration()
+    {
+        var settings = new Dictionary<string, string?>
+        {
+            { "Google:ClientId", "fake-client-id.apps.googleusercontent.com" }
+        };
+
+        return new ConfigurationBuilder()
+            .AddInMemoryCollection(settings)
+            .Build();
+    }
+
     // ✅ TEST 1: SignupAsync - should return new user Id
     [Fact]
     public async Task SignupAsync_ShouldReturnUserId_WhenUserDoesNotExist()
     {
-        // Arrange
         var context = CreateInMemoryContext();
         var jwtMock = CreateJwtMock();
-        var service = new AuthService(context, jwtMock.Object);
+        var config = CreateFakeConfiguration();
+        var service = new AuthService(context, jwtMock.Object, config);
 
         var signupDto = new UserSignupDto
         {
@@ -44,10 +58,8 @@ public class AuthServiceTests
             Password = "Test@123"
         };
 
-        // Act
         var userId = await service.SignupAsync(signupDto);
 
-        // Assert
         userId.Should().BeGreaterThan(0);
     }
 
@@ -55,10 +67,10 @@ public class AuthServiceTests
     [Fact]
     public async Task SignupAsync_ShouldThrowException_WhenUserAlreadyExists()
     {
-        // Arrange
         var context = CreateInMemoryContext();
         var jwtMock = CreateJwtMock();
-        var service = new AuthService(context, jwtMock.Object);
+        var config = CreateFakeConfiguration();
+        var service = new AuthService(context, jwtMock.Object, config);
 
         context.Users.Add(new User
         {
@@ -70,15 +82,13 @@ public class AuthServiceTests
 
         var signupDto = new UserSignupDto
         {
-            Username = "prabhu", // same username
+            Username = "prabhu",
             Email = "prabhu@test.com",
             Password = "Test@123"
         };
 
-        // Act
         var act = async () => await service.SignupAsync(signupDto);
 
-        // Assert
         await act.Should().ThrowAsync<Exception>()
             .WithMessage("User already exists");
     }
@@ -87,10 +97,10 @@ public class AuthServiceTests
     [Fact]
     public async Task LoginAsync_ShouldReturnAuthResult_WhenCredentialsAreValid()
     {
-        // Arrange
         var context = CreateInMemoryContext();
         var jwtMock = CreateJwtMock();
-        var service = new AuthService(context, jwtMock.Object);
+        var config = CreateFakeConfiguration();
+        var service = new AuthService(context, jwtMock.Object, config);
 
         context.Users.Add(new User
         {
@@ -106,10 +116,8 @@ public class AuthServiceTests
             Password = "Test@123"
         };
 
-        // Act
         var result = await service.LoginAsync(loginDto);
 
-        // Assert
         result.Should().NotBeNull();
         result!.AccessToken.Should().Be("fake-access-token");
         result.RefreshToken.Should().Be("fake-refresh-token");
@@ -120,10 +128,10 @@ public class AuthServiceTests
     [Fact]
     public async Task LoginAsync_ShouldReturnNull_WhenPasswordIsWrong()
     {
-        // Arrange
         var context = CreateInMemoryContext();
         var jwtMock = CreateJwtMock();
-        var service = new AuthService(context, jwtMock.Object);
+        var config = CreateFakeConfiguration();
+        var service = new AuthService(context, jwtMock.Object, config);
 
         context.Users.Add(new User
         {
@@ -136,13 +144,11 @@ public class AuthServiceTests
         var loginDto = new UserLoginDto
         {
             Username = "prabhu",
-            Password = "WrongPassword" // wrong
+            Password = "WrongPassword"
         };
 
-        // Act
         var result = await service.LoginAsync(loginDto);
 
-        // Assert
         result.Should().BeNull();
     }
 
@@ -150,10 +156,10 @@ public class AuthServiceTests
     [Fact]
     public async Task LoginAsync_ShouldReturnNull_WhenUserDoesNotExist()
     {
-        // Arrange
         var context = CreateInMemoryContext();
         var jwtMock = CreateJwtMock();
-        var service = new AuthService(context, jwtMock.Object);
+        var config = CreateFakeConfiguration();
+        var service = new AuthService(context, jwtMock.Object, config);
 
         var loginDto = new UserLoginDto
         {
@@ -161,10 +167,8 @@ public class AuthServiceTests
             Password = "Test@123"
         };
 
-        // Act
         var result = await service.LoginAsync(loginDto);
 
-        // Assert
         result.Should().BeNull();
     }
 
@@ -172,10 +176,10 @@ public class AuthServiceTests
     [Fact]
     public async Task RefreshTokenAsync_ShouldReturnNewTokens_WhenRefreshTokenIsValid()
     {
-        // Arrange
         var context = CreateInMemoryContext();
         var jwtMock = CreateJwtMock();
-        var service = new AuthService(context, jwtMock.Object);
+        var config = CreateFakeConfiguration();
+        var service = new AuthService(context, jwtMock.Object, config);
 
         context.Users.Add(new User
         {
@@ -183,14 +187,12 @@ public class AuthServiceTests
             Email = "prabhu@test.com",
             Password = "Test@123",
             RefreshToken = "valid-refresh-token",
-            RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7) // not expired
+            RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7)
         });
         await context.SaveChangesAsync();
 
-        // Act
         var result = await service.RefreshTokenAsync("valid-refresh-token");
 
-        // Assert
         result.Should().NotBeNull();
         result!.AccessToken.Should().Be("fake-access-token");
     }
@@ -199,10 +201,10 @@ public class AuthServiceTests
     [Fact]
     public async Task RefreshTokenAsync_ShouldReturnNull_WhenRefreshTokenIsExpired()
     {
-        // Arrange
         var context = CreateInMemoryContext();
         var jwtMock = CreateJwtMock();
-        var service = new AuthService(context, jwtMock.Object);
+        var config = CreateFakeConfiguration();
+        var service = new AuthService(context, jwtMock.Object, config);
 
         context.Users.Add(new User
         {
@@ -210,14 +212,38 @@ public class AuthServiceTests
             Email = "prabhu@test.com",
             Password = "Test@123",
             RefreshToken = "expired-refresh-token",
-            RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(-1) // already expired
+            RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(-1)
         });
         await context.SaveChangesAsync();
 
-        // Act
         var result = await service.RefreshTokenAsync("expired-refresh-token");
 
-        // Assert
         result.Should().BeNull();
+    }
+
+    // ✅ TEST 8: GoogleLoginAsync - should create a new user when email doesn't exist
+    // NOTE: This test will NOT actually pass end-to-end, because GoogleJsonWebSignature.ValidateAsync
+    // makes a real call to Google's servers to validate the token signature — it cannot be unit tested
+    // with a fake token like "fake-id-token" without mocking/wrapping that static call.
+    // Consider wrapping GoogleJsonWebSignature.ValidateAsync behind an injectable interface
+    // (e.g. IGoogleTokenValidator) if you want this fully unit-testable. Leaving this here as a stub
+    // to show intent; see note below the test.
+    [Fact(Skip = "Requires wrapping GoogleJsonWebSignature behind an injectable interface to unit test properly")]
+    public async Task GoogleLoginAsync_ShouldCreateNewUser_WhenEmailDoesNotExist()
+    {
+        var context = CreateInMemoryContext();
+        var jwtMock = CreateJwtMock();
+        var config = CreateFakeConfiguration();
+        var service = new AuthService(context, jwtMock.Object, config);
+
+        var request = new GoogleLoginRequestDto
+        {
+            IdToken = "fake-id-token"
+        };
+
+        var result = await service.GoogleLoginAsync(request);
+
+        result.Should().NotBeNull();
+        result.User.Email.Should().NotBeNullOrEmpty();
     }
 }

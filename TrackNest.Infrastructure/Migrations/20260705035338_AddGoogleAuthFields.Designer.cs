@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TrackNest.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using TrackNest.Infrastructure.Persistence;
 namespace TrackNest.Infrastructure.Migrations
 {
     [DbContext(typeof(TrackNestDbContext))]
-    partial class TrackNestDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260705035338_AddGoogleAuthFields")]
+    partial class AddGoogleAuthFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -65,7 +68,7 @@ namespace TrackNest.Infrastructure.Migrations
                     b.ToTable("Expenses");
                 });
 
-            modelBuilder.Entity("User", b =>
+            modelBuilder.Entity("TrackNest.Domain.Entities.User", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -76,10 +79,6 @@ namespace TrackNest.Infrastructure.Migrations
                     b.Property<string>("AuthProvider")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("DisplayName")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("Email")
                         .IsRequired()

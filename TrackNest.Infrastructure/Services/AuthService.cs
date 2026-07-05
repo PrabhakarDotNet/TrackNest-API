@@ -1,4 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Google.Apis.Auth;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using TrackNest.Application.DTOs;
 using TrackNest.Application.Interfaces;
 using TrackNest.Domain.Entities;
@@ -10,13 +12,16 @@ namespace TrackNest.Infrastructure.Services
     {
         private readonly TrackNestDbContext _dbContext;
         private readonly IJwtTokenService _jwtTokenService;
+        private readonly IConfiguration _configuration;
 
         public AuthService(
             TrackNestDbContext dbContext,
-            IJwtTokenService jwtTokenService)
+            IJwtTokenService jwtTokenService,
+            IConfiguration configuration)
         {
             _dbContext = dbContext;
             _jwtTokenService = jwtTokenService;
+            _configuration = configuration;
         }
 
         public async Task<AuthResultDto?> LoginAsync(UserLoginDto loginDto, CancellationToken ct = default)
@@ -46,12 +51,13 @@ namespace TrackNest.Infrastructure.Services
                 }
             };
         }
+
         public async Task<int> SignupAsync(UserSignupDto signupDto, CancellationToken ct = default)
         {
             var existingUser = await _dbContext.Users
                                 .FirstOrDefaultAsync(
-                                x => x.Username == signupDto.Username || x.Email == signupDto.Email,ct);
-            
+                                x => x.Username == signupDto.Username || x.Email == signupDto.Email, ct);
+
             if (existingUser != null)
             {
                 if (existingUser.Username == signupDto.Username)
@@ -115,7 +121,72 @@ namespace TrackNest.Infrastructure.Services
                 {
                     Id = user.Id,
                     Username = user.Username,
-                    Email = user.Email
+                    Email = user.Email,
+                    DisplayName = user.DisplayName ?? user.Username
+                }
+            };
+        }
+        public async Task<AuthResultDto> GoogleLoginAsync(GoogleLoginRequestDto request, CancellationToken ct = default)
+        {
+            GoogleJsonWebSignature.Payload payload;
+
+            try
+            {
+                var settings = new GoogleJsonWebSignature.ValidationSettings
+                {
+                    Audience = new[] { _configuration["Google:ClientId"] }
+                };
+
+                payload = await GoogleJsonWebSignature.ValidateAsync(request.IdToken, settings);
+            }
+            catch (InvalidJwtException)
+            {
+                throw new UnauthorizedAccessException("Invalid Google token.");
+            }
+
+            var user = await _dbContext.Users
+                .FirstOrDefaultAsync(u => u.Email == payload.Email, ct);
+
+            if (user == null)
+            {
+                var firstName = payload.Name?.Split(' ').FirstOrDefault() ?? payload.Email!.Split('@')[0];
+
+                user = new User
+                {
+                    Email = payload.Email!,
+                    Username = payload.Email!,
+                    DisplayName = firstName,
+                    GoogleId = payload.Subject,
+                    AuthProvider = "Google",
+                    Password = null
+                };
+
+                _dbContext.Users.Add(user);
+                await _dbContext.SaveChangesAsync(ct);
+            }
+            else if (string.IsNullOrEmpty(user.GoogleId))
+            {
+                user.GoogleId = payload.Subject;
+                await _dbContext.SaveChangesAsync(ct);
+            }
+
+            var accessToken = _jwtTokenService.GenerateToken(user);
+            var refreshToken = _jwtTokenService.GenerateRefreshToken();
+
+            user.RefreshToken = refreshToken;
+            user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
+            await _dbContext.SaveChangesAsync(ct);
+
+            return new AuthResultDto
+            {
+                AccessToken = accessToken,
+                RefreshToken = refreshToken,
+                User = new UserProfileDto
+                {
+                    Id = user.Id,
+                    Username = user.Username,
+                    Email = user.Email,
+                    DisplayName = user.DisplayName ?? user.Username
                 }
             };
         }

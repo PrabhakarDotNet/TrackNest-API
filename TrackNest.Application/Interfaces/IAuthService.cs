@@ -5,7 +5,6 @@ using System.Text;
 using System.Threading.Tasks;
 using TrackNest.Application.DTOs;
 using TrackNest.Domain.Entities;
-
 namespace TrackNest.Application.Interfaces
 {
     public interface IAuthService
@@ -14,5 +13,6 @@ namespace TrackNest.Application.Interfaces
         Task<int> SignupAsync(UserSignupDto signupDto, CancellationToken cancellationToken = default);
         Task<User?> ValidateUser(string username, string password, CancellationToken cancellationToken = default);
         Task<AuthResultDto?> RefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default);
+        Task<AuthResultDto> GoogleLoginAsync(GoogleLoginRequestDto request, CancellationToken cancellationToken = default);
     }
 }
