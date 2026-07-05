@@ -1,5 +1,6 @@
 ﻿using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging.Abstractions;
 using TrackNest.Application.DTOs;
 using TrackNest.Application.Events;
@@ -22,6 +23,37 @@ public class FakeMessagePublisher : IMessagePublisher
     }
 }
 
+// Test double — simple in-memory implementation of IDistributedCache
+public class FakeDistributedCache : IDistributedCache
+{
+    private readonly Dictionary<string, byte[]> _store = new();
+
+    public byte[]? Get(string key) => _store.TryGetValue(key, out var value) ? value : null;
+
+    public Task<byte[]?> GetAsync(string key, CancellationToken token = default)
+        => Task.FromResult(Get(key));
+
+    public void Refresh(string key) { }
+
+    public Task RefreshAsync(string key, CancellationToken token = default) => Task.CompletedTask;
+
+    public void Remove(string key) => _store.Remove(key);
+
+    public Task RemoveAsync(string key, CancellationToken token = default)
+    {
+        Remove(key);
+        return Task.CompletedTask;
+    }
+
+    public void Set(string key, byte[] value, DistributedCacheEntryOptions options) => _store[key] = value;
+
+    public Task SetAsync(string key, byte[] value, DistributedCacheEntryOptions options, CancellationToken token = default)
+    {
+        Set(key, value, options);
+        return Task.CompletedTask;
+    }
+}
+
 public class ExpenseServiceTests
 {
     private TrackNestDbContext CreateInMemoryContext()
@@ -40,7 +72,7 @@ public class ExpenseServiceTests
         // Arrange
         var context = CreateInMemoryContext();
         var publisher = new FakeMessagePublisher();
-        var service = new ExpenseService(context, NullLogger<ExpenseService>.Instance, publisher);
+        var service = new ExpenseService(context, NullLogger<ExpenseService>.Instance, publisher, new FakeDistributedCache());
 
         var request = new CreateExpenseDto
         {
@@ -64,7 +96,7 @@ public class ExpenseServiceTests
     {
         // Arrange
         var context = CreateInMemoryContext();
-        var service = new ExpenseService(context, NullLogger<ExpenseService>.Instance, new FakeMessagePublisher());
+        var service = new ExpenseService(context, NullLogger<ExpenseService>.Instance, new FakeMessagePublisher(), new FakeDistributedCache());
 
         context.Expenses.Add(new Expense
         {
@@ -93,7 +125,7 @@ public class ExpenseServiceTests
     {
         // Arrange
         var context = CreateInMemoryContext();
-        var service = new ExpenseService(context, NullLogger<ExpenseService>.Instance, new FakeMessagePublisher());
+        var service = new ExpenseService(context, NullLogger<ExpenseService>.Instance, new FakeMessagePublisher(), new FakeDistributedCache());
 
         context.Expenses.Add(new Expense
         {
@@ -122,7 +154,7 @@ public class ExpenseServiceTests
         // Arrange
         var context = CreateInMemoryContext();
         var publisher = new FakeMessagePublisher();
-        var service = new ExpenseService(context, NullLogger<ExpenseService>.Instance, publisher);
+        var service = new ExpenseService(context, NullLogger<ExpenseService>.Instance, publisher, new FakeDistributedCache());
 
         context.Expenses.Add(new Expense
         {
@@ -159,7 +191,7 @@ public class ExpenseServiceTests
     {
         // Arrange
         var context = CreateInMemoryContext();
-        var service = new ExpenseService(context, NullLogger<ExpenseService>.Instance, new FakeMessagePublisher());
+        var service = new ExpenseService(context, NullLogger<ExpenseService>.Instance, new FakeMessagePublisher(), new FakeDistributedCache());
 
         context.Expenses.Add(new Expense
         {
@@ -196,7 +228,7 @@ public class ExpenseServiceTests
         // Arrange
         var context = CreateInMemoryContext();
         var publisher = new FakeMessagePublisher();
-        var service = new ExpenseService(context, NullLogger<ExpenseService>.Instance, publisher);
+        var service = new ExpenseService(context, NullLogger<ExpenseService>.Instance, publisher, new FakeDistributedCache());
 
         context.Expenses.Add(new Expense
         {
@@ -225,7 +257,7 @@ public class ExpenseServiceTests
     {
         // Arrange
         var context = CreateInMemoryContext();
-        var service = new ExpenseService(context, NullLogger<ExpenseService>.Instance, new FakeMessagePublisher());
+        var service = new ExpenseService(context, NullLogger<ExpenseService>.Instance, new FakeMessagePublisher(), new FakeDistributedCache());
 
         context.Expenses.Add(new Expense
         {

@@ -1,5 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 using TrackNest.Application.Common;
 using TrackNest.Application.DTOs;
 using TrackNest.Application.Interfaces;
@@ -14,13 +16,56 @@ public class ExpenseService : IExpenseService
     private readonly TrackNestDbContext _context;
     private readonly ILogger<ExpenseService> _logger;
     private readonly IMessagePublisher _messagePublisher;
+    private readonly IDistributedCache _cache;
 
-    public ExpenseService(TrackNestDbContext context, ILogger<ExpenseService> logger, IMessagePublisher messagePublisher)
+    private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(5);
+
+    public ExpenseService(
+        TrackNestDbContext context,
+        ILogger<ExpenseService> logger,
+        IMessagePublisher messagePublisher,
+        IDistributedCache cache)
     {
         _context = context;
         _logger = logger;
         _messagePublisher = messagePublisher;
+        _cache = cache;
     }
+
+    // ---- Cache helpers ----
+
+    private string GetUserVersionKey(int userId) => $"expenses:version:{userId}";
+
+    private async Task<int> GetUserCacheVersionAsync(int userId, CancellationToken ct)
+    {
+        var versionKey = GetUserVersionKey(userId);
+        var versionStr = await _cache.GetStringAsync(versionKey, ct);
+
+        if (string.IsNullOrEmpty(versionStr))
+        {
+            await _cache.SetStringAsync(versionKey, "1", ct);
+            return 1;
+        }
+
+        return int.Parse(versionStr);
+    }
+
+    private async Task BumpUserCacheVersionAsync(int userId, CancellationToken ct)
+    {
+        var versionKey = GetUserVersionKey(userId);
+        var currentVersion = await GetUserCacheVersionAsync(userId, ct);
+        await _cache.SetStringAsync(versionKey, (currentVersion + 1).ToString(), ct);
+    }
+
+    private string BuildSearchCacheKey(
+        int userId, int version, int page, int pageSize,
+        string sortBy, string sortDirection, string? searchTerm)
+    {
+        var term = string.IsNullOrWhiteSpace(searchTerm) ? "none" : searchTerm.Trim().ToLower();
+        return $"expenses:v{version}:user:{userId}:p{page}:ps{pageSize}:sb{sortBy}:sd{sortDirection}:q{term}";
+    }
+
+    // ---- Main methods ----
 
     public async Task<PagedResult<ExpenseDto>> GetByUserIdAsync(
         int userId,
@@ -34,14 +79,22 @@ public class ExpenseService : IExpenseService
         if (page < 1) page = 1;
         if (pageSize < 1) pageSize = 10;
 
+        var version = await GetUserCacheVersionAsync(userId, ct);
+        var cacheKey = BuildSearchCacheKey(userId, version, page, pageSize, sortBy, sortDirection, searchTerm);
+
+        var cached = await _cache.GetStringAsync(cacheKey, ct);
+        if (!string.IsNullOrEmpty(cached))
+        {
+            _logger.LogInformation("Cache HIT for {CacheKey}", cacheKey);
+            return JsonSerializer.Deserialize<PagedResult<ExpenseDto>>(cached)!;
+        }
+
+        _logger.LogInformation("Cache MISS for {CacheKey}", cacheKey);
+
         var query = _context.Expenses
             .AsNoTracking()
             .Where(e => e.UserId == userId);
 
-        // Apply search BEFORE pagination — filtering after Skip/Take would
-        // paginate the full unfiltered set and only filter whatever page
-        // happened to load, giving wrong totals and missing matches on
-        // page 2+.
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
             var term = searchTerm.Trim();
@@ -77,13 +130,22 @@ public class ExpenseService : IExpenseService
             })
             .ToListAsync(ct);
 
-        return new PagedResult<ExpenseDto>
+        var result = new PagedResult<ExpenseDto>
         {
             Items = expenses,
             PageNumber = page,
             PageSize = pageSize,
             TotalCount = totalCount
         };
+
+        var serialized = JsonSerializer.Serialize(result);
+        await _cache.SetStringAsync(
+            cacheKey,
+            serialized,
+            new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = CacheDuration },
+            ct);
+
+        return result;
     }
 
     public async Task<int> CreateAsync(CreateExpenseDto request, int userId, CancellationToken ct = default)
@@ -101,6 +163,8 @@ public class ExpenseService : IExpenseService
 
         _context.Expenses.Add(expense);
         await _context.SaveChangesAsync(ct);
+
+        await BumpUserCacheVersionAsync(userId, ct);
 
         _logger.LogInformation("Created expense {ExpenseId} for user {UserId}", expense.Id, userId);
 
@@ -131,7 +195,7 @@ public class ExpenseService : IExpenseService
     public async Task<bool> UpdateAsync(int id, UpdateExpenseDto request, int userId, CancellationToken ct = default)
     {
         var expense = await _context.Expenses
-            .FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId, ct); // 🔐 SECURITY FIX
+            .FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId, ct);
 
         if (expense == null)
             return false;
@@ -144,6 +208,8 @@ public class ExpenseService : IExpenseService
         expense.UpdatedOn = DateTime.UtcNow;
 
         await _context.SaveChangesAsync(ct);
+
+        await BumpUserCacheVersionAsync(userId, ct);
 
         _logger.LogInformation("Updated expense {ExpenseId} by user {UserId}", id, userId);
 
@@ -166,6 +232,8 @@ public class ExpenseService : IExpenseService
         _context.Expenses.Remove(expense);
         await _context.SaveChangesAsync(ct);
 
+        await BumpUserCacheVersionAsync(userId, ct);
+
         _logger.LogInformation("Deleted expense {ExpenseId} by user {UserId}", id, userId);
 
         await _messagePublisher.PublishAsync(
@@ -175,5 +243,4 @@ public class ExpenseService : IExpenseService
 
         return true;
     }
-
 }

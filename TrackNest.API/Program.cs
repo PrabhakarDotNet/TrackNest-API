@@ -8,9 +8,11 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.OpenApi.Models;
 using TrackNest.Api.Middleware;
 using TrackNest.Infrastructure.Messaging;
+using HealthChecks.UI.Client;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using RabbitMQ.Client;
 
 var builder = WebApplication.CreateBuilder(args);
-
 builder.Services.AddControllers();
 
 builder.Services.AddDbContext<TrackNestDbContext>(options =>
@@ -23,7 +25,34 @@ builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddSingleton<IMessagePublisher, RabbitMqPublisher>();
 builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection("RabbitMq"));
-builder.Services.AddSingleton<IMessagePublisher, RabbitMqPublisher>();
+
+// Health Checks
+var rabbitMqSettings = builder.Configuration.GetSection("RabbitMq").Get<RabbitMqSettings>();
+
+builder.Services.AddHealthChecks()
+    .AddSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection")!,
+        name: "sql-server",
+        tags: new[] { "ready", "db" })
+
+    .AddRabbitMQ(
+    sp =>
+    {
+        var factory = new ConnectionFactory
+        {
+            HostName = rabbitMqSettings!.HostName,
+            Port = rabbitMqSettings.Port,
+            UserName = rabbitMqSettings.UserName,
+            Password = rabbitMqSettings.Password
+        };
+        return factory.CreateConnectionAsync().GetAwaiter().GetResult();
+    },
+    name: "rabbitmq",
+    tags: new[] { "ready", "messaging" })
+    .AddRedis(
+        builder.Configuration["Redis:ConnectionString"]!,
+        name: "redis",
+        tags: new[] { "ready", "cache" });
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -44,7 +73,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
-// ✅ Single CORS registration
 var allowedOrigins = builder.Configuration
     .GetSection("AllowedOrigins")
     .Get<string[]>()
@@ -59,6 +87,11 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod()
               .AllowCredentials();
     });
+});
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = builder.Configuration["Redis:ConnectionString"];
+    options.InstanceName = "TrackNest_";
 });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -96,6 +129,7 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<TrackNestDbContext>();
     db.Database.Migrate();
 }
+
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 if (app.Environment.IsDevelopment())
@@ -104,11 +138,27 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-
 app.UseCors("AllowAngularApp");
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
+
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false,
+    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+});
+
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready"),
+    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+});
+
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+});
+
 app.Run();
